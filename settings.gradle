@@ -23,7 +23,7 @@ def localCallrec = new File(settingsDir, '../callrec')
 if (localCallrec.isDirectory()) {
     includeBuild(localCallrec) {
         dependencySubstitution {
-            substitute module('com.github.Youbal-oops.callrec:recorderlib') using project(':recorderlib')
+            substitute module('com.github.Youbal-oops:callrec') using project(':recorderlib')
         }
     }
 }
