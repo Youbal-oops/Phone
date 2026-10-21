@@ -26,7 +26,7 @@ android {
 
 dependencies {
     // Your call-recording library. Resolved from ../callrec when that folder exists, otherwise from JitPack.
-    implementation 'com.github.Youbal-oops.callrec:recorderlib:0.2.0'
+    implementation 'com.github.Youbal-oops.callrec:recorderlib:0.3.0'
     implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'
 }
