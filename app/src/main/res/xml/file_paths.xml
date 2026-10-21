@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Recordings are kept in the app's own folder on shared storage, so nothing outside it is ever shared. -->
+    <external-files-path name="recordings" path="Recordings/"/>
+</paths>
