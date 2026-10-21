@@ -107,7 +107,7 @@ public final class CallService extends InCallService implements CallRecorder.Lis
         recording = false; recordingCall = null; new File(path).delete();
         status("The recording had no sound, so it was discarded. Check Shizuku, or try the microphone mode.");
     }
-    @Override public void onShizukuUnavailable() { recording = false; recordingCall = null; status("Shizuku is not ready, so this call was not recorded. See Settings → Setup."); }
+    @Override public void onShizukuUnavailable() { recording = false; recordingCall = null; status("Recording access is off, so this call was not recorded. Start it in Settings → Setup."); }
     @Override public void onError(String message) { recording = false; recordingCall = null; status("Recording failed: " + message); }
     private void notifySaved() { for (Runnable r : new ArrayList<>(PhoneApp.get(this).recordingListeners)) r.run(); }
 

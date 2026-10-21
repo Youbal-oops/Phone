@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import dev.youbal.callrec.lib.BuiltinAccess;
 import dev.youbal.callrec.lib.CallRecorderSetup;
 import dev.youbal.callrec.lib.RecordingStore;
 import java.io.File;
@@ -64,34 +65,70 @@ public final class SettingsActivity extends Activity {
     // ---- setup -------------------------------------------------------------------------------------------------------
     private void setupCard() {
         LinearLayout card = Ui.card(this); content.addView(card); card.addView(Ui.title(this, "Setup", 18));
+        BuiltinAccess.State builtin = BuiltinAccess.state(this);
         CallRecorderSetup.State shizuku = CallRecorderSetup.state(this);
-        boolean running = shizuku == CallRecorderSetup.State.NEEDS_PERMISSION || shizuku == CallRecorderSetup.State.READY;
-        step(card, 1, running, "Install and start Shizuku", "Lets the app record both sides of a call. Developer options → Wireless debugging → pair with the code in Shizuku → Start. Start it again after every reboot. Skip it to record with the microphone only.");
-        card.addView(Ui.button(this, shizuku == CallRecorderSetup.State.NOT_INSTALLED ? "Install Shizuku" : "Open Shizuku", !running, v -> startActivity(CallRecorderSetup.shizukuIntent(this))));
-        card.addView(Ui.button(this, "Shizuku setup guide", false, v -> startActivity(CallRecorderSetup.guideIntent())));
+        boolean access = builtin == BuiltinAccess.State.RUNNING || shizuku == CallRecorderSetup.State.READY;
 
-        step(card, 2, permissionsDone(), "Allow restricted settings and permissions", "App info → ⋮ (top right) → Allow restricted settings. Then allow the permissions.");
+        step(card, 1, permissionsDone(), "Allow restricted settings and permissions", "App info \u2192 \u22EE (top right) \u2192 Allow restricted settings. Then allow the permissions.");
         card.addView(Ui.button(this, "Open app info", false, v -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())))));
-        card.addView(Ui.button(this, permissionsDone() ? "Permissions allowed ✓" : "Allow permissions", !permissionsDone(), v -> requestPermissions(permissions(), REQ_PERMISSIONS)));
+        card.addView(Ui.button(this, permissionsDone() ? "Permissions allowed \u2713" : "Allow permissions", !permissionsDone(), v -> requestPermissions(permissions(), REQ_PERMISSIONS)));
 
         boolean isDefault = isDefaultPhone();
-        step(card, 3, isDefault, "Set as default phone app", "Gives you the call screen and lets the app see your calls.");
-        card.addView(Ui.button(this, isDefault ? "Default phone app ✓" : "Set as default", !isDefault, v -> {
+        step(card, 2, isDefault, "Set as default phone app", "Gives you the call screen and lets the app see your calls.");
+        card.addView(Ui.button(this, isDefault ? "Default phone app \u2713" : "Set as default", !isDefault, v -> {
             if (isDefault) { startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)); return; }
             Intent ask = DefaultPhone.request(this);
             if (ask != null) startActivityForResult(ask, REQ_ROLE);
             else Toast.makeText(this, "This phone does not offer the phone-app role.", Toast.LENGTH_LONG).show();
         }));
 
-        boolean ready = shizuku == CallRecorderSetup.State.READY;
-        step(card, 4, ready, "Authorise in Shizuku", "Allow the app when Shizuku asks. Recording then works on its own.");
-        card.addView(Ui.button(this, ready ? "Authorised ✓" : "Authorise in Shizuku", !ready, v -> {
-            if (CallRecorderSetup.state(this) == CallRecorderSetup.State.NOT_RUNNING || CallRecorderSetup.state(this) == CallRecorderSetup.State.NOT_INSTALLED) Toast.makeText(this, "Start Shizuku first (step 1).", Toast.LENGTH_LONG).show();
-            else CallRecorderSetup.requestPermission(REQ_SHIZUKU);
-        }));
+        step(card, 3, access, "Start recording access", "Lets the app record both sides of a call. Needs Wireless debugging (Android 11 or newer) and has to be started again after every reboot. Skip it to record with the microphone only.");
+        switch (builtin) {
+            case UNSUPPORTED:
+                card.addView(Ui.text(this, "Not available on this phone (needs Android 11 or newer). Use the Shizuku app below, or the microphone.", 13, Ui.WARN));
+                break;
+            case NOT_PAIRED:
+                card.addView(Ui.button(this, "Pair and start", true, v -> pairDialog()));
+                break;
+            case STOPPED:
+                card.addView(Ui.button(this, "Start recording access", true, v -> startAccess()));
+                card.addView(Ui.button(this, "Pair again", false, v -> pairDialog()));
+                break;
+            case RUNNING:
+                card.addView(Ui.button(this, "Recording access is on \u2713", false, v -> Toast.makeText(this, "Running. It stops when the phone restarts.", Toast.LENGTH_SHORT).show()));
+                card.addView(Ui.button(this, "Turn off", false, v -> { BuiltinAccess.stop(this); Toast.makeText(this, "Turning off\u2026", Toast.LENGTH_SHORT).show(); card.postDelayed(this::build, 1500); }));
+                break;
+        }
+        if (builtin != BuiltinAccess.State.NOT_PAIRED && builtin != BuiltinAccess.State.UNSUPPORTED)
+            card.addView(Ui.button(this, "Forget pairing", false, v -> new AlertDialog.Builder(this).setTitle("Forget pairing?").setMessage("Recording access stops and you will have to pair again.").setPositiveButton("Forget", (d, n) -> { BuiltinAccess.forget(this); build(); }).setNegativeButton("Cancel", null).show()));
+
+        card.addView(Ui.text(this, "Prefer the Shizuku app? It works too: install it, start it, then allow this app in it.", 13, Ui.MUTED));
+        card.addView(Ui.button(this, shizuku == CallRecorderSetup.State.NOT_INSTALLED ? "Install Shizuku" : "Open Shizuku", false, v -> startActivity(CallRecorderSetup.shizukuIntent(this))));
+        card.addView(Ui.button(this, "Shizuku setup guide", false, v -> startActivity(CallRecorderSetup.guideIntent())));
+        if (shizuku == CallRecorderSetup.State.NEEDS_PERMISSION || shizuku == CallRecorderSetup.State.READY)
+            card.addView(Ui.button(this, shizuku == CallRecorderSetup.State.READY ? "Allowed in Shizuku \u2713" : "Allow in Shizuku", shizuku != CallRecorderSetup.State.READY, v -> CallRecorderSetup.requestPermission(REQ_SHIZUKU)));
 
         boolean tested = !new RecordingStore(app.recordingsDir()).list().isEmpty();
-        step(card, 5, tested, "Make a test call", "Call someone for a few seconds. The recording appears in the Recordings tab.");
+        step(card, 4, tested, "Make a test call", "Call someone for a few seconds. The recording appears in the Recordings tab.");
+    }
+
+    private void pairDialog() {
+        new AlertDialog.Builder(this).setTitle("Pair with wireless debugging").setMessage(
+            "1. Turn on Developer options, then Wireless debugging (Wi-Fi must be on).\n"
+            + "2. Tap \u201CPair device with pairing code\u201D and leave that box open.\n"
+            + "3. Pull down the notification from this app and type the six-digit code.\n\n"
+            + "You only do this once. Allow notifications first if you have not.")
+            .setPositiveButton("Continue", (d, n) -> {
+                startForegroundService(new Intent(this, PairingService.class));
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+            }).setNegativeButton("Cancel", null).show();
+    }
+    private void startAccess() {
+        Toast.makeText(this, "Starting\u2026", Toast.LENGTH_SHORT).show();
+        BuiltinAccess.start(this, new BuiltinAccess.Listener() {
+            @Override public void onStatus(String message) { app.main.post(() -> Toast.makeText(SettingsActivity.this, message, Toast.LENGTH_SHORT).show()); }
+            @Override public void onDone(boolean ok, String message) { app.prefs.lastStatus(message); app.main.post(() -> { Toast.makeText(SettingsActivity.this, message, Toast.LENGTH_LONG).show(); build(); }); }
+        });
     }
 
     // ---- recording ---------------------------------------------------------------------------------------------------
@@ -100,7 +137,7 @@ public final class SettingsActivity extends Activity {
         boolean on = app.prefs.recording();
         card.addView(Ui.text(this, on ? "On. Calls with one person are recorded once they connect." : "Off. Nothing is recorded.", 14, on ? Ui.OK : Ui.MUTED));
         card.addView(Ui.button(this, on ? "Turn recording off" : "Turn recording on", !on, v -> { app.prefs.recording(!on); build(); }));
-        String[] modes = {"AUTO", "SHIZUKU", "MIC"}, modeNames = {"Automatic: both sides with Shizuku, else the microphone", "Shizuku only: both sides", "Microphone only: needs speakerphone"};
+        String[] modes = {"AUTO", "BUILTIN", "SHIZUKU", "MIC"}, modeNames = {"Automatic: both sides if access is on, else the microphone", "Built-in access only: both sides", "Shizuku app only: both sides", "Microphone only: needs speakerphone"};
         int current = 0; for (int i = 0; i < modes.length; i++) if (modes[i].equals(app.prefs.mode())) current = i;
         card.addView(Ui.button(this, "Source: " + modeNames[current].split(":")[0], false, v -> Ui.sheet(this, "Recording source", modeNames, indexOf(modes, app.prefs.mode()), n -> { app.prefs.mode(modes[n]); build(); }).show()));
         int[] days = {0, 7, 30, 90}; String[] dayNames = {"Keep forever", "Delete after 7 days", "Delete after 30 days", "Delete after 90 days"};
@@ -140,8 +177,8 @@ public final class SettingsActivity extends Activity {
     private void aboutCard() {
         LinearLayout card = Ui.card(this); content.addView(card); card.addView(Ui.title(this, "About", 18));
         String version = ""; try { version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (PackageManager.NameNotFoundException ignored) { /* Shown without a version. */ }
-        card.addView(Ui.text(this, "Callrec Phone " + version + ". Open source. No account, no ads, no tracking: your calls, contacts and recordings never leave the phone.", 13, Ui.MUTED));
-        card.addView(Ui.text(this, "Call recording by callrec. Uses Shizuku (Apache-2.0) when you start it.", 13, Ui.MUTED));
+        card.addView(Ui.text(this, "Callrec Phone " + version + ". Open source. No account, no ads, no tracking: your calls, contacts and recordings never leave the phone. The network permission is only used to talk to this phone\u2019s own wireless debugging.", 13, Ui.MUTED));
+        card.addView(Ui.text(this, "Call recording by callrec. Uses this phone\u2019s own wireless debugging, or the Shizuku app if you prefer it.", 13, Ui.MUTED));
         card.addView(Ui.button(this, "Source code", false, v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Youbal-oops/Phone")))));
     }
 }

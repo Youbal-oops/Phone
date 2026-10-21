@@ -24,7 +24,7 @@ final class CrashLog {
     static void record(Context c, String where, Throwable error) {
         try {
             StringWriter trace = new StringWriter(); error.printStackTrace(new PrintWriter(trace));
-            String text = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(new Date()) + " · " + where + "\nCallrec Phone 1.0.0 · Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") · " + Build.MANUFACTURER + " " + Build.MODEL + "\n\n" + trace;
+            String text = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(new Date()) + " · " + where + "\nCallrec Phone 1.1.0 · Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") · " + Build.MANUFACTURER + " " + Build.MODEL + "\n\n" + trace;
             try (FileOutputStream out = new FileOutputStream(file(c))) { out.write(text.getBytes(StandardCharsets.UTF_8)); }
         } catch (Throwable ignored) { /* Diagnostics must never cause a second failure. */ }
     }

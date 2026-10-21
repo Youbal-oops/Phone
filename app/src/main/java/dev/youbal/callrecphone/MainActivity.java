@@ -29,6 +29,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.content.FileProvider;
+import dev.youbal.callrec.lib.BuiltinAccess;
+import dev.youbal.callrec.lib.CallRecorderSetup;
 import dev.youbal.callrec.lib.RecordingInfo;
 import dev.youbal.callrec.lib.RecordingStore;
 import java.io.File;
@@ -183,6 +185,11 @@ public final class MainActivity extends Activity {
         frame("Recents", "Search calls");
         if (!isDefaultPhone() || !has(Manifest.permission.READ_CONTACTS) || !CallLogs.allowed(app))
             body.addView(notice("Finish setup", "Make this your phone app and allow contacts and call log. Takes a minute.", "Open setup", v -> startActivity(new Intent(this, SettingsActivity.class))));
+        if (app.prefs.recording() && BuiltinAccess.state(this) == BuiltinAccess.State.STOPPED && CallRecorderSetup.state(this) != CallRecorderSetup.State.READY)
+            body.addView(notice("Recording access is off", "Calls are not recorded until it is started again (this happens after a restart). Turn on Wireless debugging first.", "Start it", v -> BuiltinAccess.start(this, new BuiltinAccess.Listener() {
+                @Override public void onStatus(String message) { }
+                @Override public void onDone(boolean ok, String message) { app.prefs.lastStatus(message); app.main.post(() -> { toast(message); show(page); }); }
+            })));
         HorizontalScrollView strip = new HorizontalScrollView(this); strip.setHorizontalScrollBarEnabled(false); LinearLayout filters = Ui.row(this); strip.addView(filters);
         for (String[] f : new String[][]{{"all", "All"}, {"missed", "Missed"}, {"outgoing", "Outgoing"}, {"incoming", "Incoming"}}) {
             String key = f[0]; filters.addView(Ui.chip(this, f[1], recentFilter.equals(key), v -> { recentFilter = key; recentsPage(); }), lp(-2, dp(36), 0, 0, 8, 0));

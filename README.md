@@ -18,33 +18,32 @@ It is also the reference app for [**callrec**](https://github.com/Youbal-oops/ca
 
 ## Setup
 
-The same five steps are in the app under **Settings → Setup**.
+The same steps are in the app under **Settings → Setup**, with a tick for each one that is done.
 
-1. **Install and start Shizuku** (optional, but needed to record *both* sides of a call). Get it from <https://shizuku.rikka.app/download/>, then start it without root (Android 11+):
-   1. Turn on **Developer options** (tap *Build number* seven times in *About phone*).
-   2. Turn on **USB debugging**, then open **Wireless debugging** and turn it on.
-   3. In Shizuku choose **Pairing**. In Wireless debugging tap **Pair device with pairing code** and type the code from Shizuku's notification.
-   4. In Shizuku tap **Start**. If it fails, turn Wireless debugging off and on, then start again.
-   5. Pairing is one time. **Start must be repeated after every reboot.**
-   Android 10 or older: use the USB command in [Shizuku's guide](https://shizuku.rikka.app/guide/setup/).
-   Without Shizuku the app records with the microphone, which hears the other person only on speakerphone.
-2. **Allow restricted settings, then the permissions.** Phone Settings → Apps → Callrec Phone → ⋮ (top right) → **Allow restricted settings** (needed for apps installed from an APK). Then tap **Allow permissions** in the app (contacts, call log, phone, microphone, notifications).
-3. **Set Callrec Phone as your default phone app.**
-4. **Authorise it in Shizuku** when Shizuku asks. Recording then works on its own.
-5. **Make a short test call.** The recording appears in the **Recordings** tab.
+1. **Allow restricted settings, then the permissions.** Phone Settings → Apps → Callrec Phone → ⋮ (top right) → **Allow restricted settings** (needed for apps installed from an APK). Then tap **Allow permissions** in the app (contacts, call log, phone, microphone, notifications).
+2. **Set Callrec Phone as your default phone app.**
+3. **Start recording access** (to record *both* sides of a call; skip it to record with the microphone only). In the app tap **Pair and start**, then:
+   1. Turn on **Developer options** (tap *Build number* seven times in *About phone*) and, inside it, **Wireless debugging**. Wi-Fi must be on.
+   2. Tap **Pair device with pairing code** and leave that box open.
+   3. Pull down the notification from Callrec Phone and type the six-digit code into it.
+   You only pair once. **After every restart, open the app and tap Start** (Wireless debugging has to be on while it starts). Needs Android 11 or newer.
+   *Prefer the Shizuku app?* Install [Shizuku](https://shizuku.rikka.app/download/), start it ([its guide](https://shizuku.rikka.app/guide/setup/)), and allow Callrec Phone in it. Both work; the app uses whichever is on.
+4. **Make a short test call.** The recording appears in the **Recordings** tab.
 
-## Why Shizuku, and why not one app?
+## How recording works
 
-Android only lets *system* apps capture the other person's voice during a call. There is no setting to switch on and no permission to request. The options are root, the phone maker's own recorder, or a helper that borrows the shell's rights over *wireless debugging*. [Shizuku](https://shizuku.rikka.app) is that helper, and it is open source (Apache-2.0).
+Android only lets *system* apps capture the other person's voice during a call. There is no setting to switch on. The ways around it are root, the phone maker's own recorder, or borrowing the rights of Android's `shell` user, which is what `adb` runs as.
 
-Shizuku is a separate app because Android does not let an app grant *itself* those rights: you have to start it from wireless debugging, and it must be restarted after a reboot. This app cannot include Shizuku and hide that step. What it does is detect which step you are on and tell you the next one.
+Callrec Phone does the last one **by itself**. Wireless debugging (Android 11+) lets a device be paired with a code and then run shell commands. The app pairs with *its own phone*, then starts a tiny recorder process as the shell user. That process records the call audio and saves it in the app's folder; the app only tells it when to start and stop. This is the same idea as Shizuku, built in, so no second app is needed.
 
-A future version could do the wireless-debugging pairing itself, inside this app, so no second app is needed. That is a sizeable piece of work and needs testing on real phones; it is on the roadmap, not in this release.
+It has the same limits as Shizuku: the recorder process does not survive a restart (tap **Start** again), Wireless debugging has to be on while it starts, and phones can differ in whether call audio can be captured at all. Without it, the app records with the microphone, which hears the other person only on speakerphone.
 
 ## Privacy
 
-- Everything stays on the phone. There is no server, no sign-in, no analytics and no network permission at all.
+- Everything stays on the phone. There is no server, no sign-in and no analytics. Calls, contacts, notes and recordings never leave the device.
+- **About the network permission.** The app asks for `INTERNET` and a few Wi-Fi permissions. Android requires `INTERNET` for *any* network socket, even one to the phone itself, and that is the only reason: it talks to this phone's own wireless debugging on `127.0.0.1` and looks for its pairing dialog on the local network. Nothing in the code contacts any other server, and the source is here to check (search for `http` or `Socket`). If that is not acceptable to you, the microphone mode and the Shizuku-app mode need none of it, and you can remove the permission and build the app yourself.
 - Recordings are kept in the app's own folder (`Android/data/dev.youbal.callrecphone/files/Recordings`). Other apps cannot read them. Sharing is always an explicit action you take.
+- The recorder process talks to the app through a few small files in that folder, protected by a random secret kept in the app's private storage, so another app cannot give it orders.
 - Saved names are read from your contacts only to show and search them, and are not stored by the app.
 
 ## Recording calls and the law
@@ -65,7 +64,7 @@ The recording library comes from JitPack. To work on the library and the app tog
 
 ## Roadmap
 
-- Start Shizuku-style access from inside the app (wireless-debugging pairing), so no second app is needed.
+- Start the recorder automatically after a restart when Wireless debugging is already on.
 - Optional on-device transcription.
 - Voicemail and call blocking.
 
