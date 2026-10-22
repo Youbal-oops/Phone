@@ -1,6 +1,7 @@
 # Callrec Phone
 
 A plain, private phone app for Android that **records your calls**. It replaces the dialer, shows who is calling, and saves each call as an audio file on your phone. No account, no ads, no tracking, no cloud: your calls, contacts and recordings never leave the device.
+This is a Public build version for the app I made for my current employers. 
 
 It is also the reference app for [**callrec**](https://github.com/Youbal-oops/callrec), the small open-source library that does the recording.
 
